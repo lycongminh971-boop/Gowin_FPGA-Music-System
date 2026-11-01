@@ -1,46 +1,29 @@
-
-# ==========================
-# Android / Gradle
-# ==========================
-
-# Gradle缓存
+# Android缓存
 android/.gradle/
-
-# Android编译输出
 android/**/build/
-
-# 本地环境配置
 android/local.properties
 
 # ==========================
-# Gowin IDE
+# Gowin implementation
 # ==========================
 
-# 用户个人配置
+impl/gwsynthesis/
+impl/pnr/
+impl/temp/
+
+# Gowin个人配置
 art.gprj.user
 
-# 综合、布局布线生成文件（确认是生成目录后再启用）
-# impl/
-
-# ==========================
 # 临时文件
-# ==========================
-
 *.log
 *.tmp
 *.bak
 *.swp
 
-# ==========================
-# 操作系统文件
-# ==========================
-
+# 系统文件
 .DS_Store
 Thumbs.db
 
-# ==========================
 # IDE个人配置
-# ==========================
-
 .vscode/
 .idea/
