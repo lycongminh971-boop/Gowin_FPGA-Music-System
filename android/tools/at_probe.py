@@ -1,13 +1,3 @@
-"""AT 串口工具（无第三方依赖）—— 用 Win32 CreateFile 直接操作 COM 口。
-
-用法：
-    python art1/android/tools/at_probe.py COM8            # 探测：只发 AT，看有没有回
-    python art1/android/tools/at_probe.py COM8 --ask      # 发一串查询指令（只读，不改配置）
-    python art1/android/tools/at_probe.py COM8 --raw "AT+TRANMD?"
-
-为什么不用 pyserial：本机没装，而且这是唯一需要串口的地方，
-用 ctypes 调内核 32 只要几十行，不引依赖更省事。
-"""
 from __future__ import annotations
 
 import argparse
