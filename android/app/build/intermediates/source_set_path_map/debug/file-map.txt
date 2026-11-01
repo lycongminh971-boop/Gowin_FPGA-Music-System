@@ -1,0 +1,31 @@
+com.epiano.ble.app-activity-1.6.0-0 D:\AndroidDev\gradle-home\caches\transforms-4\0d59f2ff62aa4623e25440c7bde940b8\transformed\activity-1.6.0\res
+com.epiano.ble.app-lifecycle-process-2.7.0-1 D:\AndroidDev\gradle-home\caches\transforms-4\2ca95cd3f81583d99fa508d1b6cd7b84\transformed\lifecycle-process-2.7.0\res
+com.epiano.ble.app-core-1.12.0-2 D:\AndroidDev\gradle-home\caches\transforms-4\2cd1260d15b5dfd7e7d22582c394455b\transformed\core-1.12.0\res
+com.epiano.ble.app-savedstate-1.2.1-3 D:\AndroidDev\gradle-home\caches\transforms-4\36583dafe4b2f429993ad6179acf8685\transformed\savedstate-1.2.1\res
+com.epiano.ble.app-constraintlayout-2.1.4-4 D:\AndroidDev\gradle-home\caches\transforms-4\36759e8b6984be3d2b098771ddb1ff2f\transformed\constraintlayout-2.1.4\res
+com.epiano.ble.app-appcompat-resources-1.6.1-5 D:\AndroidDev\gradle-home\caches\transforms-4\42abe8c0da8a4192f2f16824fe51fb83\transformed\appcompat-resources-1.6.1\res
+com.epiano.ble.app-fragment-1.3.6-6 D:\AndroidDev\gradle-home\caches\transforms-4\45c897ae265e37a45671b3bff98e5cb4\transformed\fragment-1.3.6\res
+com.epiano.ble.app-lifecycle-livedata-core-2.7.0-7 D:\AndroidDev\gradle-home\caches\transforms-4\48bc6dee85a662d5f6b258c90df513e9\transformed\lifecycle-livedata-core-2.7.0\res
+com.epiano.ble.app-appcompat-1.6.1-8 D:\AndroidDev\gradle-home\caches\transforms-4\65293b6c38c96a04bf4caa1af11db99c\transformed\appcompat-1.6.1\res
+com.epiano.ble.app-lifecycle-runtime-2.7.0-9 D:\AndroidDev\gradle-home\caches\transforms-4\7016f240ca4229d279973188e206e0e0\transformed\lifecycle-runtime-2.7.0\res
+com.epiano.ble.app-emoji2-1.2.0-10 D:\AndroidDev\gradle-home\caches\transforms-4\71e38c6e1223e881ecdc642ef95df131\transformed\emoji2-1.2.0\res
+com.epiano.ble.app-recyclerview-1.3.2-11 D:\AndroidDev\gradle-home\caches\transforms-4\7b671865429c7276603e8fd911338385\transformed\recyclerview-1.3.2\res
+com.epiano.ble.app-lifecycle-viewmodel-savedstate-2.7.0-12 D:\AndroidDev\gradle-home\caches\transforms-4\7ec123924b96ba1311956471ba53a46f\transformed\lifecycle-viewmodel-savedstate-2.7.0\res
+com.epiano.ble.app-core-runtime-2.2.0-13 D:\AndroidDev\gradle-home\caches\transforms-4\860d4680a5b3121731f7e01d61979ce9\transformed\core-runtime-2.2.0\res
+com.epiano.ble.app-lifecycle-livedata-2.7.0-14 D:\AndroidDev\gradle-home\caches\transforms-4\9287a216d6fdb50bd0cdebbb970b7a93\transformed\lifecycle-livedata-2.7.0\res
+com.epiano.ble.app-startup-runtime-1.1.1-15 D:\AndroidDev\gradle-home\caches\transforms-4\9972e51b1402b72167d16bb24993df19\transformed\startup-runtime-1.1.1\res
+com.epiano.ble.app-annotation-experimental-1.3.0-16 D:\AndroidDev\gradle-home\caches\transforms-4\9a7c10edf84b644f2ffe842a3a1ce266\transformed\annotation-experimental-1.3.0\res
+com.epiano.ble.app-profileinstaller-1.3.0-17 D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\res
+com.epiano.ble.app-core-ktx-1.12.0-18 D:\AndroidDev\gradle-home\caches\transforms-4\b933b752a0ee7603bcabd15099f499c1\transformed\core-ktx-1.12.0\res
+com.epiano.ble.app-emoji2-views-helper-1.2.0-19 D:\AndroidDev\gradle-home\caches\transforms-4\bb1d2f35394a83db0c0a80b1a7d58d78\transformed\emoji2-views-helper-1.2.0\res
+com.epiano.ble.app-lifecycle-livedata-core-ktx-2.7.0-20 D:\AndroidDev\gradle-home\caches\transforms-4\c3eda309f7ab37370bfdf35ae885066d\transformed\lifecycle-livedata-core-ktx-2.7.0\res
+com.epiano.ble.app-lifecycle-viewmodel-2.7.0-21 D:\AndroidDev\gradle-home\caches\transforms-4\cb7d6135703686f891d1f57312d71455\transformed\lifecycle-viewmodel-2.7.0\res
+com.epiano.ble.app-lifecycle-runtime-ktx-2.7.0-22 D:\AndroidDev\gradle-home\caches\transforms-4\f01c63c6b9e07ffba672e834ab763b7d\transformed\lifecycle-runtime-ktx-2.7.0\res
+com.epiano.ble.app-customview-poolingcontainer-1.0.0-23 D:\AndroidDev\gradle-home\caches\transforms-4\ff8821730a25e225f1493508cd2ce11a\transformed\customview-poolingcontainer-1.0.0\res
+com.epiano.ble.app-pngs-24 D:\GOWIN file\art\art1\android\app\build\generated\res\pngs\debug
+com.epiano.ble.app-resValues-25 D:\GOWIN file\art\art1\android\app\build\generated\res\resValues\debug
+com.epiano.ble.app-packageDebugResources-26 D:\GOWIN file\art\art1\android\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
+com.epiano.ble.app-packageDebugResources-27 D:\GOWIN file\art\art1\android\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
+com.epiano.ble.app-merged_res-28 D:\GOWIN file\art\art1\android\app\build\intermediates\merged_res\debug
+com.epiano.ble.app-debug-29 D:\GOWIN file\art\art1\android\app\src\debug\res
+com.epiano.ble.app-main-30 D:\GOWIN file\art\art1\android\app\src\main\res

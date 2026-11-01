@@ -1,0 +1,20 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.epiano.ble.app-mergeDebugResources-26:/values-hdpi-v4/values-hdpi-v4.xml",
+            "map": [
+                {
+                    "source": "D:\\AndroidDev\\gradle-home\\caches\\transforms-4\\65293b6c38c96a04bf4caa1af11db99c\\transformed\\appcompat-1.6.1\\res\\values-hdpi-v4\\values-hdpi-v4.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "6",
+                        "endColumns": "13",
+                        "endOffsets": "327"
+                    }
+                }
+            ]
+        }
+    ]
+}

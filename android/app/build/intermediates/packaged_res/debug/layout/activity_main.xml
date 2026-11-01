@@ -1,0 +1,528 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- ============ 连接 ============ -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/sec_conn"
+            android:textStyle="bold"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/tvConnState"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:text="@string/not_connected"
+            android:textSize="14sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnScan"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/scan" />
+
+            <Button
+                android:id="@+id/btnDisconnect"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/disconnect" />
+        </LinearLayout>
+
+        <Spinner
+            android:id="@+id/spDevices"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <Button
+            android:id="@+id/btnConnect"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/connect" />
+
+        <!-- 板子状态（复刻屏幕上的 9 字符口径） -->
+        <TextView
+            android:id="@+id/tvBoard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:padding="8dp"
+            android:background="#EEEEEE"
+            android:textSize="14sp"
+            android:text="@string/board_placeholder" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnQuery"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/query" />
+
+            <Button
+                android:id="@+id/btnSync"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/sync" />
+
+            <Button
+                android:id="@+id/btnSyncFull"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/sync_full" />
+        </LinearLayout>
+
+        <!--
+          2026-10-29 新增：清空槽位。
+          板子的 ready_mask 一旦被置 1，除了复位无法清回 0 ——
+          于是某槽写进内容后永远"有曲子"，用户没法让它回到空状态，
+          表现为「重开软件旧信息还在、无法重新录」。
+          这两个按钮发 CLEAR 命令解决它。
+        -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnClearSlot"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/clear_slot" />
+
+            <Button
+                android:id="@+id/btnClearAll"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/clear_all" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:background="#CCCCCC" />
+
+        <!-- ============ 播放 ============ -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/sec_play"
+            android:textStyle="bold"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/tvSlots"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:textSize="14sp"
+            android:text="@string/slots_placeholder" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnPlay1"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/slot1" />
+
+            <Button
+                android:id="@+id/btnPlay2"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/slot2" />
+
+            <Button
+                android:id="@+id/btnPlay3"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/slot3" />
+
+            <Button
+                android:id="@+id/btnPlay4"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/slot4" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnGuide"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/mode_guide" />
+
+            <Button
+                android:id="@+id/btnAuto"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/mode_auto" />
+
+            <Button
+                android:id="@+id/btnStop"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/stop" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:background="#CCCCCC" />
+
+        <!-- ============ 参数 ============ -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/sec_param"
+            android:textStyle="bold"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/tone"
+            android:paddingTop="4dp" />
+
+        <RadioGroup
+            android:id="@+id/rgTone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/rbTone0"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/tone0" />
+
+            <RadioButton
+                android:id="@+id/rbTone1"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/tone1" />
+
+            <RadioButton
+                android:id="@+id/rbTone2"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/tone2" />
+
+            <RadioButton
+                android:id="@+id/rbTone3"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/tone3" />
+        </RadioGroup>
+
+        <TextView
+            android:id="@+id/tvBend"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="6dp"
+            android:text="@string/bend_zero" />
+
+        <SeekBar
+            android:id="@+id/sbBend"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="24" />
+
+        <TextView
+            android:id="@+id/tvVib"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="6dp"
+            android:text="@string/vib_zero" />
+
+        <SeekBar
+            android:id="@+id/sbVib"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="3" />
+
+        <CheckBox
+            android:id="@+id/cbDelay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/delay" />
+
+        <!--
+          2026-10-28 新增：节奏（TEMPO）。
+          此前 RTL 里 tempo_sel 被写死成 120BPM，蓝牙根本改不了 ——
+          现在通过 TEMPO 命令（0x0F）读写，档位 0..5 → 60/80/100/120/160/200 BPM。
+        -->
+        <TextView
+            android:id="@+id/tvTempo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/tempo_default" />
+
+        <SeekBar
+            android:id="@+id/sbTempo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="5" />
+
+        <!--
+          2026-10-29 新增：GUIDE 严格节奏模式。
+          关（默认）= 等待模式：按对才前进，超时不停。
+          开 = 严格节奏：到时限强制前进并记 miss，节奏完全由 BPM 决定。
+          配合曲谱里的休止（空帧），指引就会严格按拍走、休止时不亮键。
+        -->
+        <CheckBox
+            android:id="@+id/cbStrict"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/strict_rhythm" />
+
+        <Button
+            android:id="@+id/btnReadParam"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/read_param" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:background="#CCCCCC" />
+
+        <!-- ============ 录音（只回传音符事件） ============ -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/sec_rec"
+            android:textStyle="bold"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/tvRecInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:textSize="14sp"
+            android:text="@string/rec_idle" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnRecStart"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/rec_start" />
+
+            <Button
+                android:id="@+id/btnRecStop"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/rec_stop" />
+
+            <Button
+                android:id="@+id/btnRecInfo"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/rec_info" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnRecRead"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/rec_read" />
+
+            <Button
+                android:id="@+id/btnRecCommit"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/rec_commit" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:background="#CCCCCC" />
+
+        <!-- ============ 曲库 ============ -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/sec_lib"
+            android:textStyle="bold"
+            android:textSize="16sp" />
+
+        <EditText
+            android:id="@+id/etName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/hint_name"
+            android:inputType="text" />
+
+        <EditText
+            android:id="@+id/etMelody"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/hint_melody"
+            android:inputType="text"
+            android:text="@string/demo_melody" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnAddSong"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/add_song" />
+
+            <Button
+                android:id="@+id/btnDeleteSong"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/delete_song" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="6dp"
+            android:text="@string/playlist_hint"
+            android:textSize="12sp" />
+
+        <Spinner
+            android:id="@+id/spLib"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnSlotA"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/to_slot1" />
+
+            <Button
+                android:id="@+id/btnSlotB"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/to_slot2" />
+
+            <Button
+                android:id="@+id/btnSlotC"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/to_slot3" />
+
+            <Button
+                android:id="@+id/btnSlotD"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/to_slot4" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:background="#CCCCCC" />
+
+        <!-- ============ 日志 ============ -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/sec_log"
+            android:textStyle="bold"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/tvLog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:paddingTop="4dp"
+            android:textSize="12sp"
+            android:textIsSelectable="true" />
+
+    </LinearLayout>
+</ScrollView>

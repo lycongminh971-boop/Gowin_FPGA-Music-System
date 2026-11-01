@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.epiano.ble.session.SessionTest" tests="35" skipped="0" failures="0" errors="0" timestamp="2026-10-29T17:32:01" hostname="CRUSH" time="0.055">
+  <properties/>
+  <testcase name="COMMIT 会截断到 512 字节" classname="com.epiano.ble.session.SessionTest" time="0.011"/>
+  <testcase name="回帧被拆成多段仍能解析" classname="com.epiano.ble.session.SessionTest" time="0.006"/>
+  <testcase name="playFromLibrary 找不到曲单槽时报错" classname="com.epiano.ble.session.SessionTest" time="0.001"/>
+  <testcase name="未录音时 REC_STOP 被拒" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <testcase name="掉电后背板子为空 自动全量重传" classname="com.epiano.ble.session.SessionTest" time="0.003"/>
+  <testcase name="DATA 分帧每帧不超过 32 字节且是 4 的倍数" classname="com.epiano.ble.session.SessionTest" time="0.001"/>
+  <testcase name="重复 REC_START 被拒" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <testcase name="改谱触发重传 改名不触发" classname="com.epiano.ble.session.SessionTest" time="0.005"/>
+  <testcase name="单槽完整下发后板子就绪" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <testcase name="MODE 对未就绪槽被拒" classname="com.epiano.ble.session.SessionTest" time="0.001"/>
+  <testcase name="PLAY 未就绪槽被拒" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <testcase name="丢一帧会自动重发" classname="com.epiano.ble.session.SessionTest" time="0.002"/>
+  <testcase name="掉电判据必须排除内置槽" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <testcase name="同步报告能描述结果" classname="com.epiano.ble.session.SessionTest" time="0.007"/>
+  <testcase name="回读录音音符事件 不涉及音频" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <testcase name="QUERY 返回 STATUS 且内置槽就绪" classname="com.epiano.ble.session.SessionTest" time="0.001"/>
+  <testcase name="单槽失败不拖垮其它槽" classname="com.epiano.ble.session.SessionTest" time="0.003"/>
+  <testcase name="SET 与 MODE 能下发" classname="com.epiano.ble.session.SessionTest" time="0.001"/>
+  <testcase name="首次同步下发非内置槽并记账" classname="com.epiano.ble.session.SessionTest" time="0.001"/>
+  <testcase name="录音提交到曲谱槽后可播放" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <testcase name="回读录音能还原和弦事件" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <testcase name="forceFull 强制重传" classname="com.epiano.ble.session.SessionTest" time="0.001"/>
+  <testcase name="记账一致时重连一帧不发" classname="com.epiano.ble.session.SessionTest" time="0.001"/>
+  <testcase name="槽未就绪时板子回 result3 与长度错同码" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <testcase name="同步途中掉电 作废记账并重来" classname="com.epiano.ble.session.SessionTest" time="0.003"/>
+  <testcase name="parseNotes 跳过空白并兜底时值 0" classname="com.epiano.ble.session.SessionTest" time="0.001"/>
+  <testcase name="超过重试上限抛异常" classname="com.epiano.ble.session.SessionTest" time="0.002"/>
+  <testcase name="心跳就是 QUERY" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <testcase name="forceBuiltin 覆盖槽 0" classname="com.epiano.ble.session.SessionTest" time="0.001"/>
+  <testcase name="未录音内容时 REC_COMMIT 被拒" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <testcase name="parseNotes 忽略非法键位但保留合法音符" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <testcase name="回读整片录音区会分多次读取" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <testcase name="和弦曲子能正确下发" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <testcase name="录音开始 停止 与信息查询" classname="com.epiano.ble.session.SessionTest" time="0.001"/>
+  <testcase name="不保护槽0时 ready_mask=0b0001 不算板子空" classname="com.epiano.ble.session.SessionTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

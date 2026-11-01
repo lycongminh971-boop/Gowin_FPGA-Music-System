@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      蓝牙权限按 Android 版本分两套，这不是可选的：
+        · API 31 (Android 12) 起 BLUETOOTH_SCAN/CONNECT 取代了旧的 BLUETOOTH/BLUETOOTH_ADMIN。
+        · API 30 及以下只能靠 BLUETOOTH + BLUETOOTH_ADMIN + ACCESS_FINE_LOCATION。
+
+      ★ 2026-10-28 去掉 BLUETOOTH_SCAN 上的 neverForLocation：
+        这个标志会告诉系统「本应用不靠蓝牙推断位置」，代价是系统**会过滤掉一部分广播包**
+        （不带最新数据类型的广告包尤其容易被滤）。手机上一向正常，但在若干平板
+        （实测反馈：安卓 12/13 的平板扫描列表完全为空）上会变成"一个设备都扫不到"。
+        去掉它之后，API 31+ 的 SCAN 权限会要求用户同时授予"附近设备"，
+        我们本来就该申请——扫描结果因此不再被系统静默裁剪。
+        代价：API 31+ 需要用户多授权一项，但这比"扫不到"好得多。
+
+      ★ 2026-10-28 第二次修正：ACCESS_FINE_LOCATION **不再限制 maxSdkVersion**。
+        起因：用户在华为平板上遇到「App 提示缺少蓝牙权限，但系统权限列表里
+        根本找不到蓝牙/附近设备这一项」，点什么都没得点。
+
+        原因：HarmonyOS 4（底层 Android 12）把 BLE 扫描权限归进「附近设备」分组，
+        而部分华为/荣耀平板的权限面板**只有当应用同时声明了定位权限时**
+        才把该分组显示出来。原来我们把 ACCESS_FINE_LOCATION 限到 maxSdkVersion=30，
+        于是在 API 31+ 的设备上系统看不到任何定位权限声明 ⇒ 分组不渲染 ⇒ 无法授权。
+        标准 Android 12+ 确实不需要定位权限就能扫 BLE，但华为的权限面板不这么实现。
+
+        代价：API 31+ 的权限列表里会多出一项「位置信息」。
+        我们**不会真的去读位置**（Manifest 里没有 ACCESS_COARSE_LOCATION，
+        运行时也只申请 SCAN/CONNECT），它只是让权限面板把蓝牙分组显示出来。
+        这个代价值得付 —— 否则在华为平板上完全无法授权、App 直接不可用。
+
+        BLUETOOTH / BLUETOOTH_ADMIN 仍然限 maxSdkVersion=30：
+        这两个是 API 30 及以下的旧权限，API 31+ 上有它们反而会触发兼容告警。
+    -->
+    <uses-permission android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+
+    <!-- 不限版本：见上面 2026-10-28 说明（华为平板权限面板依赖它） -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!--
+      bluetooth_le 声明为 required=false：
+        required=true 时，应用商店会拒绝向"未声明 BLE 特性"的设备分发，
+        用户手工装 APK 也会在部分系统上被拦（提示"不兼容本设备"）。
+        本应用少了 BLE 只是不能用，不该连装都装不上 —— 运行时会给出明确提示。
+    -->
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.EpianoBLE">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

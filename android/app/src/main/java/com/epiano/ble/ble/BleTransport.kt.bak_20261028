@@ -1,0 +1,1127 @@
+package com.epiano.ble.ble
+
+import android.Manifest
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCallback
+import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
+import android.bluetooth.BluetoothGattService
+import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothProfile
+import android.bluetooth.le.BluetoothLeScanner
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
+import androidx.core.content.ContextCompat
+import com.epiano.ble.session.Transport
+import java.util.UUID
+import java.util.concurrent.ConcurrentLinkedQueue
+
+/**
+ * E104-BT52 的 FFF0 服务里三个特征的分工（2026-10-27 修正）。
+ *
+ * 真机 GATT 枚举（用户手机截图）：
+ *
+ *     服务 0xFFF0
+ *       特征 0xFFF1 [RN]   ← 可读 + 通知  ⇒ **数据接收**
+ *       特征 0xFFF2 [WR]   ← 可写 + 可读  ⇒ **数据发送**
+ *       特征 0xFFF3 [WRN]  ← 可写 + 通知  ⇒ **AT 空中配置**
+ *
+ * ★ 修正说明（这次改动的理由）：
+ *   早先按「哪个特征同时可写+可通知」去猜，选中了 FFF3。
+ *   那只是**能力匹配**，不等于**厂商定义的用途** —— FFF3 是配置口。
+ *   手册 5.8 明确 FFF2 写数据、FFF1 通知，所以固定按此配对，
+ *   **不再靠 Write/Notify 属性猜测数据通道**。
+ *
+ * ★ 为什么单独提取成纯 Kotlin（不碰 Android 类）：
+ *   这样选择逻辑能在纯 JVM 单测里直接验证（见 CharPickTest），
+ *   不需要模拟器。之前那次「选到 FFF3」的错误正是缺少这层测试导致的。
+ */
+internal object DataChannels {
+
+    fun uuid(short: String): String = "0000${short.lowercase()}-0000-1000-8000-00805f9b34fb"
+
+    data class Characteristic(val uuid: String, val properties: Int)
+    data class Service(val uuid: String, val characteristics: List<Characteristic>)
+    data class Selection(val service: String, val tx: String, val rx: String)
+
+    /** PROPERTY_WRITE | PROPERTY_WRITE_NO_RESPONSE */
+    private const val WRITABLE = 0x0C
+
+    /** PROPERTY_NOTIFY | PROPERTY_INDICATE */
+    private const val NOTIFIABLE = 0x30
+
+    fun pick(services: List<Service>): Selection? {
+        fun pair(s: Service, txId: String, rxId: String): Selection? {
+            val tx = s.characteristics.firstOrNull { it.uuid.equals(uuid(txId), true) } ?: return null
+            val rx = s.characteristics.firstOrNull { it.uuid.equals(uuid(rxId), true) } ?: return null
+            // 能力必须真的支持，否则写/订阅会在运行期失败
+            if ((tx.properties and WRITABLE) == 0 || (rx.properties and NOTIFIABLE) == 0) return null
+            return Selection(s.uuid, tx.uuid, rx.uuid)
+        }
+
+        // E104-BT52：FFF0/FFF2 写 + FFF1 通知。
+        // ★ 缺少正确通道时**绝不退回 FFF3** —— FFF3 是配置口，
+        //   往里写曲谱数据会被当 AT 指令吞掉，而且症状极难排查。
+        services.firstOrNull { it.uuid.equals(uuid("fff0"), true) }?.let {
+            return pair(it, "fff2", "fff1")
+        }
+        // 通用透传模块（多数用 ffe0/ffe1 单特征）
+        services.firstOrNull { it.uuid.equals(uuid("ffe0"), true) }?.let {
+            return pair(it, "ffe1", "ffe1")
+        }
+        // 未知或改过 UUID 的模块：要求调用方显式配置，不猜
+        return null
+    }
+}
+
+/**
+ * Android BLE 通道 —— [Transport] 的唯一平台实现。
+ *
+ * 这一层刻意做得很薄：它只负责「把字节写进 GATT 特征」与「把 notify 收到的
+ * 字节交出来」，所有协议语义都在 `protocol` / `session` 包里（那些包不引用
+ * 任何 Android 类，所以能在纯 JVM 单测里跑）。
+ *
+ * ## 三个必须处理的 Android 现实
+ *
+ * 1. **MTU 与分片**：默认 ATT MTU 是 23 ⇒ 写载荷只有 **20 字节**。
+ *    本工程最大的上行帧是 DATA（LEN=34 ⇒ 整帧 39 字节），
+ *    最大的下行帧是 RECDATA（24 字节）。所以：
+ *      · 上行：`session` 层把 DATA 的 n 限到 32 字节载荷（整帧 39），
+ *        仍超过 20 —— 因此这里**主动请求 MTU 517**，并在写之前按当前 MTU 切片；
+ *      · 下行：notify 可能把一条 10 字节 STATUS 拆成 1~3 包，
+ *        组帧由 `protocol.FrameSplitter` 负责，这里只管原样交出。
+ *
+ * 2. **特征 UUID 按厂商定义，不靠能力猜**（2026-10-27 修正）：
+ *    E104-BT52 用 `FFF0` 服务下的 **`FFF2` 写 / `FFF1` 通知**，
+ *    `FFF3` 是 AT 空中配置口 —— 早先按「哪个特征同时可写+可通知」选中了
+ *    FFF3，那只是能力匹配，不是厂商定义的用途。现在由 [DataChannels] 决定，
+ *    该逻辑是纯 Kotlin，可在 JVM 单测里直接验证。
+ *    若模块改过 UUID，用 [CharSelector.Explicit] 显式指定。
+ *
+ * 3. **写类型**：优先用 `WRITE_TYPE_DEFAULT`（有响应），因为 RTL 侧是
+ *    停等协议 —— 收到 ACK 才发下一帧，写响应能让链路层确认送达。
+ *    模块只支持 no-response 时自动降级。
+ *
+ * ## 权限
+ * Android 12 (API 31) 起需要 `BLUETOOTH_SCAN` + `BLUETOOTH_CONNECT`；
+ * 之前需要 `ACCESS_FINE_LOCATION` 才能扫到设备。调用方负责申请，
+ * 这一层只做检查并在缺失时给出明确异常（而不是静默失败）。
+ */
+class BleTransport(
+    private val context: Context,
+    private val selector: CharSelector = CharSelector.Auto,
+) : Transport {
+
+    companion object {
+        private const val TAG = "BleTransport"
+
+        /**
+         * 通用串口透传服务（多数 BLE 透传模块用它）。
+         *
+         * ⚠️ 注意 E104-BT52 **不用** 这一对：它用 FFF0/FFF2 写、FFF1 通知。
+         */
+        val UUID_COMMON_SERVICE: UUID = UUID.fromString("0000ffe0-0000-1000-8000-00805f9b34fb")
+        val UUID_COMMON_CHAR: UUID = UUID.fromString("0000ffe1-0000-1000-8000-00805f9b34fb")
+
+        /**
+         * 亿佰特 E104-BT52 的服务（FFF0）。
+         *
+         * 这个服务里**同时有三种特征**，用途由厂商定义，不能靠属性猜：
+         *   0xFFF1 [RN]  → 数据接收（通知）
+         *   0xFFF2 [WR]  → 数据发送（写入）
+         *   0xFFF3 [WRN] → AT 空中配置
+         *
+         * 官方快速指南（www.ebyte.com/news/4396.html）里那句
+         * 「打开 uuid 这 **fff0** 的服务，使能**配置通道** notify」
+         * 说的是配置阶段用 **FFF3**，**不是**整个 FFF0 都拿来做配置。
+         * 早先按「同时可写+可通知」选中 FFF3 当数据口是**错的**。
+         *
+         * 选择逻辑集中在 [DataChannels.pick]，它是纯 Kotlin，可单测。
+         */
+        val UUID_E104_SERVICE: UUID = UUID.fromString(DataChannels.uuid("fff0"))
+
+        /** 客户端配置描述符（订阅 notify 要写它）。 */
+        private val UUID_CCC: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+
+        /** 期望 MTU。517 是 BLE 规范上限，实际由外设回什么算什么。 */
+        private const val REQUEST_MTU = 517
+
+        /** 默认 ATT 载荷（MTU 23 − 3 字节头）。 */
+        private const val DEFAULT_PAYLOAD = 20
+    }
+
+    /** 特征选择策略。 */
+    sealed interface CharSelector {
+        /** 按已知模块协议选择发送/接收特征；**不猜测**未知服务。 */
+        data object Auto : CharSelector
+
+        /** 指定 UUID（知道模块手册时用这个最稳）。 */
+        data class Explicit(val service: UUID, val tx: UUID, val rx: UUID) : CharSelector
+    }
+
+    /** 连接状态变化回调（在主线程序调用）。 */
+    var onState: ((State, String) -> Unit)? = null
+
+    /** 收到一段 notify 字节时的额外回调，仅用于 UI 显示原始流量。 */
+    var onRawBytes: ((ByteArray) -> Unit)? = null
+
+    enum class State { DISCONNECTED, CONNECTING, CONNECTED, READY, FAILED }
+
+    private val main = Handler(Looper.getMainLooper())
+
+    /** notify 收到的字节排队等 [read] 取走。 */
+    private val inbox = ConcurrentLinkedQueue<Byte>()
+
+    private var gatt: BluetoothGatt? = null
+    private var txChar: BluetoothGattCharacteristic? = null
+    private var rxChar: BluetoothGattCharacteristic? = null
+    private var currentMtu: Int = 23
+
+    @Volatile
+    private var ready = false
+
+    val isReady: Boolean get() = ready
+
+    /** 当前协商到的 ATT MTU（未协商时为 23）。 */
+    val mtu: Int get() = currentMtu
+
+    /** 当前可用的单次写载荷上限。 */
+    val maxWritePayload: Int
+        get() = (currentMtu - 3).coerceAtLeast(DEFAULT_PAYLOAD)
+
+    // -----------------------------------------------------------------------
+    // 权限
+    // -----------------------------------------------------------------------
+
+    private fun hasPermission(p: String): Boolean =
+        ContextCompat.checkSelfPermission(context, p) == PackageManager.PERMISSION_GRANTED
+
+    /**
+     * 运行期需要的权限列表。调用方在扫描/连接前申请。
+     *
+     * ## 为什么所有版本都要定位权限
+     *
+     * 标准 Android 上：
+     *   · API 30 及以下 —— 扫 BLE **必须**有 ACCESS_FINE_LOCATION（系统硬性规定）
+     *   · API 31 及以上 —— BLUETOOTH_SCAN/CONNECT 就够，不需要定位
+     *
+     * 但 HarmonyOS 4（华为/荣耀平板，底层 Android 12）不这么实现：
+     * 它的权限面板把 BLE 扫描归进「附近设备」分组，而**该分组只有在应用
+     * 同时声明了定位权限时才会显示**。用户在平板上看到的现象就是
+     * 「App 说缺权限，可系统权限列表里压根没有蓝牙这一项，没得点」。
+     *
+     * 所以这里在 API 31+ 也一并申请定位权限 —— 只是为了把权限入口显示出来，
+     * 我们**从不读取位置**（代码里没有任何 LocationManager 调用）。
+     * 这是为了让 App 在华为平板上可用而付的必要代价。
+     */
+    fun requiredPermissions(): List<String> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        listOf(
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        )
+    } else {
+        listOf(Manifest.permission.ACCESS_FINE_LOCATION)
+    }
+
+    private fun checkPermissions() {
+        // 核心权限必须齐；定位权限属于「华为面板需要」的辅助项，
+        //   缺了它标准 Android 也能工作，所以不做硬拦截 —— 否则在
+        //   拒绝定位的普通安卓机上反而用不了。
+        val core = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            listOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+        } else {
+            listOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        for (p in core) {
+            if (!hasPermission(p)) throw BleException("缺少权限：$p（请在应用内授予蓝牙权限）")
+        }
+    }
+
+    /**
+     * 适配器诊断信息（一行），用于日志。
+     *
+     * HarmonyOS 上出现过「isEnabled=true 但扫描/发现全都静默失败」的情况，
+     * 把 state / isDiscovering / 是否支持 BLE 摊开，能快速区分
+     * 「蓝牙真的没开」与「蓝牙开着但协议栈卡住」。
+     */
+    @SuppressLint("MissingPermission")
+    fun adapterDebugInfo(): String {
+        val mgr = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        val a = mgr?.adapter ?: return "适配器自检：没有蓝牙适配器"
+        val state = try {
+            a.state
+        } catch (_: Exception) {
+            -1
+        }
+        val disc = try {
+            @Suppress("DEPRECATION")
+            a.isDiscovering
+        } catch (_: Exception) {
+            false
+        }
+        val ble = context.packageManager.hasSystemFeature(
+            android.content.pm.PackageManager.FEATURE_BLUETOOTH_LE
+        )
+        return "适配器自检：isEnabled=${a.isEnabled} state=$state " +
+            "isDiscovering=$disc 支持BLE=$ble SDK=${Build.VERSION.SDK_INT}"
+    }
+
+    /**
+     * 扫描前的「环境自检」：把「扫不到设备」的常见原因直接说出来。
+     *
+     * ★ 2026-10-28 新增。用户在**平板**上装了 APK，界面正常但设备列表永远是空的，
+     *   完全看不出问题在哪。其实扫描为空几乎总是下面几条之一：
+     *
+     *   1. 蓝牙没开 / 平板根本没有 BLE
+     *   2. 权限只给了「仅此一次」，或系统设置里「附近设备」被关掉
+     *   3. **API 30 及以下：系统定位开关必须打开** ——
+     *      这是安卓的硬性规定（BLE 扫描可推断位置），只授权限不够。
+     *      手机上很多用户默认开着定位，平板常常是关的，于是「平板扫不到、手机能扫到」。
+     *   4. 模块已被别的设备连着（E104 从机默认只接一个中心）
+     *
+     * 返回 null 表示可以扫；否则返回一句给用户看的原因。
+     * 这是**诊断**而不是拦截：调用方仍可继续扫，只是把这句提示打到日志里。
+     */
+    @SuppressLint("MissingPermission")
+    fun diagnoseScanPrereq(): String? {
+        val mgr = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        val a = mgr?.adapter ?: return "本机没有蓝牙适配器（平板可能不支持蓝牙）"
+        if (!a.isEnabled) return "蓝牙未开启，请先打开系统蓝牙开关"
+        if (!context.packageManager.hasSystemFeature(
+                android.content.pm.PackageManager.FEATURE_BLUETOOTH_LE
+            )
+        ) {
+            return "本机不支持 BLE（低功耗蓝牙），无法连接模块"
+        }
+        // API 30 及以下：定位开关必须是开的，否则扫描结果会被系统静默清空
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
+            val locOn = try {
+                android.provider.Settings.Secure.getInt(
+                    context.contentResolver,
+                    android.provider.Settings.Secure.LOCATION_MODE,
+                    android.provider.Settings.Secure.LOCATION_MODE_OFF,
+                ) != android.provider.Settings.Secure.LOCATION_MODE_OFF
+            } catch (_: Exception) {
+                true    // 读不到就当开着，不要因为读不到就拦住用户
+            }
+            if (!locOn) {
+                return "系统「定位」是关的 —— 安卓 11 及以下扫 BLE 必须打开定位开关，" +
+                    "请到「设置 → 位置信息」打开后重试"
+            }
+        }
+        return null
+    }
+
+    private fun adapter(): BluetoothAdapter {
+        checkPermissions()
+        val mgr = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        val a = mgr?.adapter ?: throw BleException("本机没有蓝牙适配器")
+        if (!a.isEnabled) throw BleException("蓝牙未开启，请先打开蓝牙")
+        return a
+    }
+
+    // -----------------------------------------------------------------------
+    // 扫描
+    // -----------------------------------------------------------------------
+
+    /** 扫到的一个设备。 */
+    data class Found(val name: String?, val address: String, val rssi: Int) {
+        override fun toString(): String = "${name ?: "(无名)"}  $address  ${rssi}dBm"
+    }
+
+    private var scanner: BluetoothLeScanner? = null
+    private var scanCallback: ScanCallback? = null
+
+    /**
+     * 开始扫描 BLE 设备。
+     *
+     * @param nameFilter 只上报名字包含该串（大小写不敏感）的设备；null = 全部。
+     *   模块默认广播名是 `FPGA_EPIANO`。
+     */
+    @SuppressLint("MissingPermission")
+    fun startScan(nameFilter: String? = null, onFound: (Found) -> Unit, onError: (String) -> Unit) {
+        val a = try {
+            adapter()
+        } catch (e: BleException) {
+            onError(e.message ?: "蓝牙不可用"); return
+        }
+        stopScan()
+        val sc = a.bluetoothLeScanner ?: run {
+            onError("无法获取 BLE 扫描器（蓝牙可能刚被关闭）"); return
+        }
+        scanner = sc
+
+        val cb = object : ScanCallback() {
+            override fun onScanResult(callbackType: Int, result: ScanResult) {
+                // ★ 名字要用三种来源兜底，缺一不可：
+                //   1) result.scanRecord?.deviceName —— 广播/扫描响应里带的完整名（最可靠）
+                //   2) result.device.name            —— 系统缓存的名字，**经常是 null**
+                //   3) device.address                —— 永远有
+                //
+                //   之前这里只读 device.name 且「名字为 null 就丢弃」，
+                //   结果把「已扫到地址、名字还没到」的回调全扔了 ——
+                //   安卓常先回调一次无名结果，稍后 scan response 才带名字，
+                //   于是扫描列表永远是空的。这是过滤逻辑写错，不是模块的问题。
+                val recordName = try {
+                    result.scanRecord?.deviceName
+                } catch (_: SecurityException) {
+                    null
+                }
+                val cachedName = try {
+                    result.device.name
+                } catch (_: SecurityException) {
+                    null
+                }
+                val name = recordName ?: cachedName
+                rawCallbackCount = rawCallbackCount + 1
+
+                // 过滤只作用于「已经知道名字」的设备；
+                // 名字未知时**先上报**（否则永远看不到设备），由 UI 决定是否忽略。
+                if (nameFilter != null && name != null &&
+                    !name.contains(nameFilter, ignoreCase = true)
+                ) {
+                    return
+                }
+                onFound(Found(name, result.device.address, result.rssi))
+            }
+
+            // ★ 2026-10-28：OEM（尤其国产平板）常在批量上报里丢批次，
+            //   不重写这个方法的话这些批次会被静默丢弃。
+            override fun onBatchScanResults(results: MutableList<ScanResult>) {
+                for (r in results) onScanResult(ScanSettings.CALLBACK_TYPE_ALL_MATCHES, r)
+            }
+
+            override fun onScanFailed(errorCode: Int) {
+                // errorCode 含义（Android 官方）：
+                //   1 = ALREADY_STARTED  2 = APP_REGISTRATION_FAILED
+                //   3 = INTERNAL_ERROR   4 = FEATURE_UNSUPPORTED   5 = OUT_OF_RESOURCES
+                val why = when (errorCode) {
+                    1 -> "已有扫描在进行（等 2 秒再点一次）"
+                    2 -> "系统拒绝注册扫描（权限被撤销，去设置里重新授予「附近设备」）"
+                    3 -> "扫描器内部错误（关掉蓝牙再打开，或重启平板）"
+                    4 -> "本机不支持 BLE 扫描"
+                    5 -> "系统资源不足（关掉其他用蓝牙的应用）"
+                    else -> "未知原因"
+                }
+                // ★ 2026-10-28：华为/荣耀平板（HarmonyOS）常见 errorCode=1，
+                //   即使并没有别的扫描在跑 —— 那是系统的 BLE 扫描器卡在"半启动"状态。
+                //   这种情况重试通常无效，必须靠下面的经典蓝牙兜底。
+                onError("扫描失败，错误码 $errorCode：$why" +
+                    if (errorCode == 1) "（若反复出现，请用「经典蓝牙兜底」按钮）" else "")
+            }
+        }
+        scanCallback = cb
+
+        // ★ 2026-10-28：把每次扫描的**原始回调次数**记下来，供诊断使用。
+        //   用户反馈：平板日志里「权限已授予」之后一直空列表，看不出是
+        //   「系统一个回调都没给」还是「回调来了但被我们过滤掉了」。
+        //   这两个结论指向完全不同的排查方向，所以必须能区分。
+        rawCallbackCount = 0
+
+        val settings = ScanSettings.Builder()
+            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            // 上报类型设成 ALL_MATCHES 才能拿到 scan response 里的名字；
+            // 默认的 MATCH_MODE/REPORT 策略在部分机型上只给「无名」的第一包。
+            .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+            .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+            // 部分平板默认会按「扫描窗口/间隔」节流，显式给满能明显改善发现率
+            .setReportDelay(0)
+            .build()
+        // 只按名字过滤在部分机型上会漏设备，所以过滤放在回调里做，这里不设 ScanFilter。
+        //   ★ 注意 startScan 可能抛 IllegalArgumentException（扫描器已死/参数被 OEM 拒），
+        //     之前没接住 —— 那种情况下界面静默无反应，和「扫不到」看起来一模一样。
+        try {
+            sc.startScan(emptyList<ScanFilter>(), settings, cb)
+        } catch (e: Exception) {
+            onError("启动扫描失败：${e.javaClass.simpleName} ${e.message ?: ""}")
+            return
+        }
+        emit(State.CONNECTING, "正在扫描…")
+    }
+
+    /** 本次扫描收到的**原始**回调数（未经过滤）。诊断用。 */
+    @Volatile
+    var rawCallbackCount: Int = 0
+        private set
+
+    // -----------------------------------------------------------------------
+    // 经典蓝牙兜底（HarmonyOS 平板）
+    // -----------------------------------------------------------------------
+
+    /**
+     * **经典蓝牙设备发现** —— 给 HarmonyOS 平板用的退路。
+     *
+     * ## 为什么需要它
+     *
+     * 华为/荣耀平板跑 HarmonyOS 4（内核仍是 Android 12），有一个很典型的现象：
+     *
+     *   · 用**平板自带的蓝牙设置**能搜到耳机、音箱等设备
+     *   · 但**第三方 App 调 `BluetoothLeScanner.startScan()` 一个回调都收不到**，
+     *     而且 `onScanFailed` 也不一定报错 —— 完全静默
+     *
+     * 原因是 HarmonyOS 在系统层对「普通应用的后台/前台 BLE 扫描」做了限制，
+     * 却没有按标准 Android 的契约给出错误码。这不是我们的代码能绕过的系统行为。
+     *
+     * 但 `BluetoothAdapter.startDiscovery()`（**经典蓝牙**发现流程）在 HarmonyOS 上
+     * 通常是放行的 —— 它能拿到设备的**名字和 MAC 地址**。
+     * E104-BT52 同时支持 BLE 与经典蓝牙（双模），所以在经典发现里**能看到它**。
+     *
+     * 拿到 MAC 地址之后，我们不再需要扫描：
+     * 直接用 [connectAddress] 连这个地址即可，GATT 服务照样能发现
+     * （GATT 属于 BLE 连接层，与「扫描」是两件事）。
+     *
+     * ## 限制
+     *
+     * · 经典发现拿不到 RSSI 与广播数据 —— 但连接不需要这些
+     * · 发现过程约 12 秒，比 BLE 扫描慢
+     * · 若模块被配成「仅 BLE 不广播经典」，这里就看不到它
+     *
+     * @param onFound 每发现一个设备回调一次（名字可能为空）
+     * @param onDone  发现结束（无论有无结果）回调，用于收尾
+     * @param onLog   诊断日志（适配器状态等），可选
+     */
+    @SuppressLint("MissingPermission")
+    fun startClassicDiscovery(
+        onFound: (Found) -> Unit,
+        onDone: (String) -> Unit,
+        onLog: (String) -> Unit = {},
+    ) {
+        val a = try {
+            adapter()
+        } catch (e: BleException) {
+            onDone(e.message ?: "蓝牙不可用")
+            return
+        }
+        // ★ 2026-10-28：先把适配器的真实状态打出来。
+        //   用户日志里出现「无法启动经典蓝牙发现」——那是 startDiscovery() 返回 false。
+        //   返回 false 的标准含义只有两种：蓝牙没开、或已有发现在进行。
+        //   但我们在前面已经 cancelDiscovery()，所以更可能是**适配器状态异常**
+        //   （HarmonyOS 有时 isEnabled=true 但底层协议栈已挂）。把状态摊开才查得动。
+        val state = try {
+            a.state
+        } catch (_: Exception) {
+            -1
+        }
+        val disc = try {
+            @Suppress("DEPRECATION")
+            a.isDiscovering
+        } catch (_: Exception) {
+            false
+        }
+        onLog("适配器自检：isEnabled=${a.isEnabled} state=$state isDiscovering=$disc")
+        if (!a.isEnabled) {
+            onDone("蓝牙未开启，请先打开系统蓝牙开关再试")
+            return
+        }
+        if (disc) {
+            // 上一次发现没正常结束（HarmonyOS 常见）：先强制取消，否则 startDiscovery 必返回 false
+            try {
+                @Suppress("DEPRECATION")
+                a.cancelDiscovery()
+            } catch (_: Exception) {
+            }
+            android.os.SystemClock.sleep(800)   // 给协议栈一点时间真正停下
+            onLog("检测到遗留发现流程，已取消并等待 0.8 秒")
+        }
+        stopScan()
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(ctx: android.content.Context, intent: android.content.Intent) {
+                when (intent.action) {
+                    android.bluetooth.BluetoothDevice.ACTION_FOUND -> {
+                        @Suppress("DEPRECATION")
+                        val dev = intent.getParcelableExtra<android.bluetooth.BluetoothDevice>(
+                            android.bluetooth.BluetoothDevice.EXTRA_DEVICE
+                        ) ?: return
+                        val name = try {
+                            dev.name
+                        } catch (_: SecurityException) {
+                            null
+                        }
+                        @Suppress("DEPRECATION")
+                        val rssi = intent.getShortExtra(
+                            android.bluetooth.BluetoothDevice.EXTRA_RSSI, (0).toShort()
+                        ).toInt()
+                        onFound(Found(name, dev.address, rssi))
+                    }
+                    android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
+                        cleanup()
+                        onDone("经典蓝牙发现结束")
+                    }
+                }
+            }
+
+            private fun cleanup() {
+                try {
+                    context.unregisterReceiver(this)
+                } catch (_: Exception) {
+                }
+                try {
+                    @Suppress("DEPRECATION")
+                    a.cancelDiscovery()
+                } catch (_: Exception) {
+                }
+            }
+        }
+        classicReceiver = receiver
+        // ★ 2026-10-28 修复闪退：这两个是**系统广播**，必须用 RECEIVER_EXPORTED 注册。
+        //
+        //   Android 13 (API 33) 起，`registerReceiver` 对「非系统广播」要求显式声明
+        //   导出标志。我一开始写成了 RECEIVER_NOT_EXPORTED，结果在真机上
+        //   **点按钮就闪退**：
+        //     SecurityException: Receiving system broadcasts requires
+        //     RECEIVER_EXPORTED   (或类似)
+        //   因为 `BluetoothDevice.ACTION_FOUND` 与
+        //   `BluetoothAdapter.ACTION_DISCOVERY_FINISHED` 都是系统发出的广播，
+        //   系统要求接收方允许接收来自系统组件的广播。
+        //
+        //   注意语义：RECEIVER_EXPORTED 不是说「别的 App 能往我这里发」，
+        //   而是「允许接收系统/其他应用的广播」—— 系统广播本来就得靠它。
+        //
+        //   另外 API < 33 时用两参数重载（不接受 flags）。
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                androidx.core.content.ContextCompat.registerReceiver(
+                    context,
+                    receiver,
+                    android.content.IntentFilter().apply {
+                        addAction(android.bluetooth.BluetoothDevice.ACTION_FOUND)
+                        addAction(android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+                    },
+                    androidx.core.content.ContextCompat.RECEIVER_EXPORTED,
+                )
+            } else {
+                @Suppress("UnspecifiedRegisterReceiverFlag", "DEPRECATION")
+                context.registerReceiver(
+                    receiver,
+                    android.content.IntentFilter().apply {
+                        addAction(android.bluetooth.BluetoothDevice.ACTION_FOUND)
+                        addAction(android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+                    },
+                )
+            }
+        } catch (e: Exception) {
+            // 注册失败不能让整个 App 崩掉 —— 明确告诉用户发生了什么
+            classicReceiver = null
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (_: Exception) {
+            }
+            onDone("注册蓝牙广播失败：${e.javaClass.simpleName} ${e.message ?: ""}")
+            return
+        }
+        val ok = try {
+            @Suppress("DEPRECATION")
+            a.startDiscovery()
+        } catch (e: Exception) {
+            onLog("startDiscovery 抛异常：${e.javaClass.simpleName} ${e.message ?: ""}")
+            false
+        }
+        if (!ok) {
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (_: Exception) {
+            }
+            classicReceiver = null
+            val st2 = try {
+                a.state
+            } catch (_: Exception) {
+                -1
+            }
+            onDone(
+                "无法启动经典蓝牙发现（startDiscovery 返回 false，" +
+                    "当前 state=$st2）。常见原因：\n" +
+                    "  1) 蓝牙刚被关闭又打开，协议栈还没就绪 —— 等 5 秒再试\n" +
+                    "  2) 系统设置里正在搜索设备 —— 先退出设置页\n" +
+                    "  3) 华为平板的『蓝牙扫描』被系统限制 —— 尝试重启平板\n" +
+                    "  4) 用平板自带蓝牙设置搜一次，确认硬件正常",
+            )
+        }
+    }
+
+    private var classicReceiver: android.content.BroadcastReceiver? = null
+
+    @SuppressLint("MissingPermission")
+    fun stopScan() {
+        val sc = scanner
+        val cb = scanCallback
+        if (sc != null && cb != null) {
+            try {
+                sc.stopScan(cb)
+            } catch (_: Exception) {
+            }
+        }
+        scanner = null
+        scanCallback = null
+        classicReceiver?.let {
+            try {
+                context.unregisterReceiver(it)
+            } catch (_: Exception) {
+            }
+        }
+        classicReceiver = null
+    }
+
+    // -----------------------------------------------------------------------
+    // 连接
+    // -----------------------------------------------------------------------
+
+    /**
+     * 连接设备。**异步**：结果为 [onState] 回调中的 READY / FAILED。
+     */
+    @SuppressLint("MissingPermission")
+    fun connect(address: String) {
+        val a = try {
+            adapter()
+        } catch (e: BleException) {
+            emit(State.FAILED, e.message ?: "蓝牙不可用"); return
+        }
+        // ★ 2026-10-28：经典蓝牙发现过程会严重拖慢 GATT 连接（有时直接超时），
+        //   而 HarmonyOS 平板正是靠经典发现找到设备的 —— 所以连接前必须取消发现。
+        try {
+            @Suppress("DEPRECATION")
+            a.cancelDiscovery()
+        } catch (_: Exception) {
+        }
+        stopScan()
+        close()
+
+        val device: BluetoothDevice = try {
+            a.getRemoteDevice(address)
+        } catch (e: IllegalArgumentException) {
+            emit(State.FAILED, "设备地址无效：$address"); return
+        }
+
+        emit(State.CONNECTING, "正在连接 $address …")
+        // autoConnect=false：直连更快，但**首次失败很常见**（尤其模块刚广播、
+        //   或系统 GATT 缓存里还留着旧句柄）。所以失败时自动重试一次。
+        // ★ 重试时先 close() 旧的 gatt：不关的话新连接会挂在旧句柄上，
+        //   表现成「连了但永远停在 CONNECTING」。
+        gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+    }
+
+    /** 连接失败后的自动重试计数。 */
+    private var connectAttempt = 0
+
+    /** 单一回调实例：重连时复用同一个，避免持有多个导致状态错乱。 */
+    private val gattCallback = GattCallback()
+
+    /**
+     * GATT 回调。
+     *
+     * ★ 用**具名内部类**而不是匿名 `object`：回调里重连时要引用自身，
+     *   匿名 object 自引用会触发 Kotlin 的「递归类型推断」编译错误
+     *   （`Type checking has run into a recursive problem`）。
+     *   具名类直接写 `this` 就没这个问题。
+     */
+    private inner class GattCallback : BluetoothGattCallback() {
+
+        @SuppressLint("MissingPermission")
+        override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                // 133 = GATT_ERROR，安卓上最常见的「连不上」，
+                //   多因 GATT 缓存脏或设备刚断开还在冷却。刷新一次通常就好。
+                val hint = when (status) {
+                    // 133 没有公开常量（BluetoothGatt 里不叫 GATT_ERROR），写死数值
+                    133 -> "（GATT_ERROR 133：常见于 GATT 缓存脏或设备刚断开，已自动重试）"
+                    8 -> "（连接超时：模块可能不在广播，或已被其它手机占用）"
+                    19 -> "（远端主动断开：模块可能已被连接或被复位）"
+                    else -> ""
+                }
+                ready = false
+                try {
+                    g.close()
+                } catch (_: Exception) {
+                }
+
+                if (connectAttempt < 1) {
+                    connectAttempt++
+                    emit(State.CONNECTING, "连接失败 status=$status，正在重试…")
+                    val dev: BluetoothDevice? = try {
+                        g.device
+                    } catch (_: Exception) {
+                        null
+                    }
+                    if (dev != null) {
+                        val self: BluetoothGattCallback = this
+                        main.postDelayed({
+                            try {
+                                gatt = dev.connectGatt(context, false, self, BluetoothDevice.TRANSPORT_LE)
+                            } catch (e: Exception) {
+                                emit(State.FAILED, "重试失败：${e.message}")
+                            }
+                        }, 600)
+                        return
+                    }
+                }
+                emit(State.FAILED, "连接失败：GATT status=$status $hint")
+                return
+            }
+            when (newState) {
+                BluetoothProfile.STATE_CONNECTED -> {
+                    connectAttempt = 0
+                    emit(State.CONNECTED, "已连接，正在发现服务…")
+                    // ★ 顺序要紧：先 discoverServices()，拿到服务后再 requestMtu。
+                    //   早先是「先 requestMtu 再 discoverServices」——
+                    //   两个都是异步 GATT 操作，而安卓**同一时刻只允许一个**
+                    //   未完成的 GATT 请求，并发提交时第二个会被丢弃，
+                    //   表现成「服务发现没回调」或「卡在 CONNECTED」。
+                    if (!g.discoverServices()) {
+                        emit(State.FAILED, "discoverServices 提交失败")
+                    }
+                }
+
+                BluetoothProfile.STATE_DISCONNECTED -> {
+                    ready = false
+                    emit(State.DISCONNECTED, "连接已断开")
+                    close()
+                }
+            }
+        }
+
+        override fun onMtuChanged(g: BluetoothGatt, mtu: Int, status: Int) {
+            currentMtu = if (status == BluetoothGatt.GATT_SUCCESS) mtu else 23
+            Log.i(TAG, "MTU = $currentMtu（写载荷上限 ${maxWritePayload}）")
+        }
+
+        @SuppressLint("MissingPermission")
+        override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                emit(State.FAILED, "服务发现失败：status=$status"); return
+            }
+
+            // ★ 把整张 GATT 表打到日志。这是排查「连上了但用不了」的唯一依据：
+            //   模块手册说 FFF0 是配置通道、数据通道 UUID 随固件而定，
+            //   不看枚举结果就只能猜。用户截图这一行就能定位。
+            dumpGatt(g)
+
+            val picked = pickCharacteristics(g)
+            if (picked == null) {
+                emit(
+                    State.FAILED,
+                    "未找到已知数据通道：E104-BT52 应为 FFF0 服务下的 " +
+                        "FFF2(写) + FFF1(通知)。若模块改过 UUID，请用 CharSelector.Explicit 显式指定。" +
+                        "完整 GATT 表已打在日志里。"
+                )
+                return
+            }
+            val (tx, rx) = picked
+            txChar = tx
+            rxChar = rx
+            emit(State.CONNECTED, "数据通道 TX=${short(tx.uuid)} RX=${short(rx.uuid)}")
+            Log.i(TAG, "TX=${tx.uuid}  RX=${rx.uuid}")
+
+            // ★ 服务发现完成后再协商 MTU。安卓同一时刻只允许一个未完成的
+            //   GATT 请求，所以不能和 discoverServices 并发提交。
+            g.requestMtu(REQUEST_MTU)
+
+            // 订阅 notify
+            val ok = g.setCharacteristicNotification(rx, true)
+            if (!ok) {
+                emit(State.FAILED, "无法启用通知（setCharacteristicNotification 失败）"); return
+            }
+            val ccc = rx.getDescriptor(UUID_CCC)
+            if (ccc != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    g.writeDescriptor(ccc, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                } else {
+                    @Suppress("DEPRECATION")
+                    ccc.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    @Suppress("DEPRECATION")
+                    g.writeDescriptor(ccc)
+                }
+            } else {
+                // 没有 CCC 描述符的模块也能收到 notify（少数实现），继续
+                Log.w(TAG, "该特征没有 CCC 描述符，仍尝试接收通知")
+                ready = true
+                emit(State.READY, "已就绪（MTU=$currentMtu）")
+            }
+        }
+
+        @Deprecated("Android 13 起用带 value 的重载")
+        override fun onDescriptorWrite(g: BluetoothGatt, d: BluetoothGattDescriptor, status: Int) {
+            if (d.uuid == UUID_CCC) {
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    ready = true
+                    emit(State.READY, "已就绪（MTU=$currentMtu，写载荷 $maxWritePayload）")
+                } else {
+                    // ★ 订阅失败**不再直接判死**：部分模块拒绝写 CCC，
+                    //   但 notify 依然能收到。继续尝试，让用户用「刷新状态」验证。
+                    ready = true
+                    emit(
+                        State.READY,
+                        "通知订阅返回 status=$status（已忽略并继续，若收不到回帧请检查模块）"
+                    )
+                }
+            }
+        }
+
+        @Deprecated("Android 13 起用 onCharacteristicChanged(gatt, char, value)")
+        override fun onCharacteristicChanged(g: BluetoothGatt, c: BluetoothGattCharacteristic) {
+            @Suppress("DEPRECATION")
+            val v = c.value ?: return
+            enqueue(v)
+        }
+
+        /**
+         * 写完成回调。
+         *
+         * ★ 早先**完全没有实现这个方法**，所以「写有没有真的成功」是看不见的。
+         *   `writeCharacteristic()` 的返回值只表示"提交给了协议栈"，
+         *   真正的结果在这里。没有它就分不清「写没送达」和「板子没回帧」，
+         *   而这两种问题的排查方向完全不同。
+         */
+        override fun onCharacteristicWrite(g: BluetoothGatt, c: BluetoothGattCharacteristic, status: Int) {
+            lastWriteStatus = status
+            writeSignal.release()
+        }
+
+        override fun onCharacteristicChanged(
+            g: BluetoothGatt,
+            c: BluetoothGattCharacteristic,
+            value: ByteArray,
+        ) {
+            enqueue(value)
+        }
+    }
+
+    private fun enqueue(v: ByteArray) {
+        if (v.isEmpty()) return
+        bytesReceived += v.size
+        for (b in v) inbox.add(b)
+        onRawBytes?.let { cb -> main.post { cb(v) } }
+    }
+
+    /** 累计收到的 notify 字节数（诊断用：区分「没收到任何字节」与「收到了但解析失败」）。 */
+    @Volatile
+    var bytesReceived: Int = 0
+        private set
+
+    /** 累计写出的字节数（诊断用）。 */
+    @Volatile
+    var bytesWritten: Int = 0
+        private set
+
+    /** 把整张 GATT 表打到日志，便于用户截图定位。 */
+    @SuppressLint("MissingPermission")
+    private fun dumpGatt(g: BluetoothGatt) {
+        val sb = StringBuilder("GATT 表：")
+        for (svc in g.services) {
+            sb.append("\n  服务 ").append(short(svc.uuid))
+            if (svc.uuid == UUID_E104_SERVICE) {
+                // 按厂商定义标注，**不是**按属性猜。FFF3 是配置口，不要当数据口用。
+                sb.append("  ← E104：FFF2=写数据 FFF1=收通知 FFF3=AT配置")
+            }
+            for (c in svc.characteristics) {
+                val props = buildString {
+                    if ((c.properties and BluetoothGattCharacteristic.PROPERTY_WRITE) != 0) append("W")
+                    if ((c.properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0) append("w")
+                    if ((c.properties and BluetoothGattCharacteristic.PROPERTY_READ) != 0) append("R")
+                    if ((c.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0) append("N")
+                    if ((c.properties and BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0) append("I")
+                }
+                sb.append("\n    特征 ").append(short(c.uuid)).append("  [").append(props).append("]")
+            }
+        }
+        emit(State.CONNECTED, sb.toString())
+        Log.i(TAG, sb.toString())
+    }
+
+    /** UUID 缩写显示：0000ffe1-0000-1000-8000-00805f9b34fb → 0xFFE1 */
+    private fun short(u: UUID): String {
+        val s = u.toString()
+        return if (s.startsWith("0000") && s.endsWith("-0000-1000-8000-00805f9b34fb")) {
+            "0x" + s.substring(4, 8).uppercase()
+        } else {
+            s
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun pickCharacteristics(g: BluetoothGatt): Pair<BluetoothGattCharacteristic, BluetoothGattCharacteristic>? {
+        when (val sel = selector) {
+            is CharSelector.Explicit -> {
+                val svc = g.getService(sel.service) ?: return null
+                val tx = svc.getCharacteristic(sel.tx) ?: return null
+                val rx = svc.getCharacteristic(sel.rx) ?: return null
+                if (!tx.isWritableProp() || !(rx.isNotifiable || rx.isIndicatable)) return null
+                return tx to rx
+            }
+
+            CharSelector.Auto -> {
+                // ★ 选择交给 DataChannels.pick（纯 Kotlin，有单测）。
+                //   它按厂商定义固定配 FFF0/FFF2 写 + FFF1 通知，
+                //   **不再**按「谁同时可写+可通知」去猜 —— 那会把 FFF3（AT 配置口）
+                //   误当数据口用，是最难排查的一类错误。
+                val selected = DataChannels.pick(
+                    g.services.map { svc ->
+                        DataChannels.Service(
+                            svc.uuid.toString(),
+                            svc.characteristics.map { DataChannels.Characteristic(it.uuid.toString(), it.properties) },
+                        )
+                    }
+                ) ?: return null
+                val svc = g.getService(UUID.fromString(selected.service)) ?: return null
+                val tx = svc.getCharacteristic(UUID.fromString(selected.tx)) ?: return null
+                val rx = svc.getCharacteristic(UUID.fromString(selected.rx)) ?: return null
+                return tx to rx
+            }
+        }
+    }
+
+    private fun BluetoothGattCharacteristic.isWritableProp(): Boolean =
+        (properties and (BluetoothGattCharacteristic.PROPERTY_WRITE or
+            BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)) != 0
+
+    private val BluetoothGattCharacteristic.isNotifiable: Boolean
+        get() = (properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0
+
+    private val BluetoothGattCharacteristic.isIndicatable: Boolean
+        get() = (properties and BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0
+
+    // -----------------------------------------------------------------------
+    // Transport 实现
+    // -----------------------------------------------------------------------
+
+    /**
+     * 写一段字节。
+     *
+     * ★ 按 MTU 切片是**必须**的：本工程最大的上行帧 39 字节（DATA，n=32），
+     *   超过默认 20 字节载荷。不分片会被系统截断或直接拒绝，
+     *   而 RTL 侧是逐字节状态机 —— 半截帧会**静默**被 1 秒超时丢弃，
+     *   表现成「发了但板子没反应」，极难排查。
+     */
+    @SuppressLint("MissingPermission")
+    override fun write(data: ByteArray) {
+        val g = gatt ?: throw BleException("尚未连接")
+        val c = txChar ?: throw BleException("尚未找到可写特征")
+        if (!ready) throw BleException("通道尚未就绪（通知未订阅完成）")
+
+        val chunk = maxWritePayload
+        var off = 0
+        while (off < data.size) {
+            val n = minOf(chunk, data.size - off)
+            val part = data.copyOfRange(off, off + n)
+
+            // ★ 带响应写（WRITE_TYPE_DEFAULT）必须**等 onCharacteristicWrite 回调**再发下一段。
+            //   安卓的 GATT 同一时刻只允许一个未完成请求，连续 submit 会被丢弃。
+            //   早先这里只判断 submit 返回值（GATT_SUCCESS 只代表"已提交"，
+            //   不代表"已送达"），所以写失败完全不可见 —— 表现成"发出去了但没回帧"。
+            val useResponse = c.isWritableWithResponse()
+            if (useResponse) awaitWriteSlot()
+            writeCounter.set(0)
+
+            val ok = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val type = if (useResponse) BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                else BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+                g.writeCharacteristic(c, part, type) == BluetoothGatt.GATT_SUCCESS
+            } else {
+                @Suppress("DEPRECATION")
+                c.writeType = if (useResponse) BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                else BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+                @Suppress("DEPRECATION")
+                c.value = part
+                @Suppress("DEPRECATION")
+                g.writeCharacteristic(c)
+            }
+            if (!ok) throw BleException("写入特征失败（第 $off 字节起）")
+            bytesWritten += part.size
+
+            // 等服务端确认这一段已收到，再发下一段
+            if (useResponse) waitWriteComplete(part.size)
+
+            off += n
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // 写完成等待（配合 onCharacteristicWrite 回调）
+    // -----------------------------------------------------------------------
+
+    /** 每段写的等待信号。1 = 已完成。 */
+    private val writeSignal = java.util.concurrent.Semaphore(0, false)
+
+    /** 写失败标记（回调里置位）。 */
+    @Volatile
+    private var lastWriteStatus: Int = 0
+
+    private val writeCounter = java.util.concurrent.atomic.AtomicInteger(0)
+
+    /** 等上一段写完成（防连续提交）。最多等 300ms，超时不阻塞流程。 */
+    private fun awaitWriteSlot() {
+        // 上一段已经在 waitWriteComplete 里等过了，这里只是兜底
+        try {
+            Thread.sleep(2)
+        } catch (_: InterruptedException) {
+        }
+    }
+
+    /**
+     * 等这一段写的 `onCharacteristicWrite` 回调。
+     *
+     * 超时 500ms：BLE 写一个 244 字节的分片在 1Mbps PHY 上约 2~3ms，
+     * 500ms 足够宽松；超时说明链路异常，此时不抛异常（让上层按"无回帧"处理），
+     * 但要打日志，便于区分"写没送出去"和"板子没回"。
+     */
+    private fun waitWriteComplete(bytes: Int) {
+        val got = writeSignal.tryAcquire(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+        if (!got) {
+            emit(State.CONNECTED, "⚠ 写 ${bytes} 字节后 500ms 未收到 GATT 写确认（链路慢或模块未响应）")
+        } else if (lastWriteStatus != BluetoothGatt.GATT_SUCCESS) {
+            emit(State.CONNECTED, "⚠ GATT 写失败 status=$lastWriteStatus（${bytes} 字节）")
+        }
+    }
+
+    private fun BluetoothGattCharacteristic.isWritableWithResponse(): Boolean =
+        (properties and BluetoothGattCharacteristic.PROPERTY_WRITE) != 0
+
+    /** 取走当前排队的所有 notify 字节；没有则返回空数组（不阻塞）。 */
+    override fun read(): ByteArray {
+        if (inbox.isEmpty()) return ByteArray(0)
+        val out = ArrayList<Byte>()
+        while (true) {
+            val b = inbox.poll() ?: break
+            out.add(b)
+        }
+        return ByteArray(out.size) { out[it] }
+    }
+
+    @SuppressLint("MissingPermission")
+    override fun close() {
+        ready = false
+        txChar = null
+        rxChar = null
+        inbox.clear()
+        val g = gatt
+        gatt = null
+        if (g != null) {
+            try {
+                g.disconnect()
+            } catch (_: Exception) {
+            }
+            try {
+                g.close()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun emit(s: State, msg: String) {
+        if (s != State.READY && s != State.CONNECTED) ready = false
+        onState?.let { cb -> main.post { cb(s, msg) } }
+    }
+}
+
+/** BLE 层错误。 */
+class BleException(message: String) : Exception(message)

@@ -1,0 +1,112 @@
+{
+    "Device": "GW5AT-60B",
+    "Files": [
+        {
+            "Path": "D:/GOWIN file/art/art1/src/adsr.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/art_report.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/audio_delay.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/audio_tx.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/auto_player.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/beat_gen.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/bt_link.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/ec11_decode.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/gowin_rom/gowin_rom.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/guide_player.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/i2c_master.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/lcd_font.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/led_map.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/mpr121.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/poly_engine.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/recorder.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/rgb_scope.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/song_ram.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/star.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/tlc59282_chain.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/uart_rx.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/uart_tx.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/vl53l0x.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/voice_alloc.v",
+            "Type": "verilog"
+        },
+        {
+            "Path": "D:/GOWIN file/art/art1/src/vol_map.v",
+            "Type": "verilog"
+        }
+    ],
+    "IncludePath": [
+    ],
+    "LoopLimit": 2000,
+    "ResultFile": "D:/GOWIN file/art/art1/impl/temp/rtl_parser.result",
+    "Top": "star",
+    "VerilogStd": "verilog_2001",
+    "VhdlStd": "vhdl_93"
+}

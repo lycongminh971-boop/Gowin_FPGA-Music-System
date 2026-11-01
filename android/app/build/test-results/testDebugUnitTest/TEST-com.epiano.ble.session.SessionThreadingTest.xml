@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.epiano.ble.session.SessionThreadingTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-29T17:32:01" hostname="CRUSH" time="0.833">
+  <properties/>
+  <testcase name="正常回帧时 query 能拿到 STATUS" classname="com.epiano.ble.session.SessionThreadingTest" time="0.001"/>
+  <testcase name="会话操作必须串行执行" classname="com.epiano.ble.session.SessionThreadingTest" time="0.161"/>
+  <testcase name="防重入会把后续任务丢掉 所以多个查询必须合并成一个任务" classname="com.epiano.ble.session.SessionThreadingTest" time="0.515"/>
+  <testcase name="假 ACK 帧能通过协议层校验" classname="com.epiano.ble.session.SessionThreadingTest" time="0.0"/>
+  <testcase name="无回帧时 sendFrame 会阻塞 且时长约等于 超时乘重试" classname="com.epiano.ble.session.SessionThreadingTest" time="0.156"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  用矢量 drawable 当图标，避免引入 PNG 资源（无二进制依赖、可读可 diff）。
+  图形是一小段键条：3 个键位方块，中间一个高亮 —— 呼应 GUIDE 模式的目标键。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#1565C0"
+        android:pathData="M0,0h108v108h-108z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M20,34h16v40h-16z" />
+    <path
+        android:fillColor="#FFA000"
+        android:pathData="M46,34h16v40h-16z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M72,34h16v40h-16z" />
+</vector>

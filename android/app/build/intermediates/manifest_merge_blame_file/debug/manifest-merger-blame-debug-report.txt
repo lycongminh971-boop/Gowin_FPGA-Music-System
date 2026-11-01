@@ -1,0 +1,211 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.epiano.ble"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="24"
+9        android:targetSdkVersion="34" />
+10
+11    <!--
+12      蓝牙权限按 Android 版本分两套，这不是可选的：
+13        · API 31 (Android 12) 起 BLUETOOTH_SCAN/CONNECT 取代了旧的 BLUETOOTH/BLUETOOTH_ADMIN。
+14        · API 30 及以下只能靠 BLUETOOTH + BLUETOOTH_ADMIN + ACCESS_FINE_LOCATION。
+15
+16      ★ 2026-10-28 去掉 BLUETOOTH_SCAN 上的 neverForLocation：
+17        这个标志会告诉系统「本应用不靠蓝牙推断位置」，代价是系统**会过滤掉一部分广播包**
+18        （不带最新数据类型的广告包尤其容易被滤）。手机上一向正常，但在若干平板
+19        （实测反馈：安卓 12/13 的平板扫描列表完全为空）上会变成"一个设备都扫不到"。
+20        去掉它之后，API 31+ 的 SCAN 权限会要求用户同时授予"附近设备"，
+21        我们本来就该申请——扫描结果因此不再被系统静默裁剪。
+22        代价：API 31+ 需要用户多授权一项，但这比"扫不到"好得多。
+23
+24      ★ 2026-10-28 第二次修正：ACCESS_FINE_LOCATION **不再限制 maxSdkVersion**。
+25        起因：用户在华为平板上遇到「App 提示缺少蓝牙权限，但系统权限列表里
+26        根本找不到蓝牙/附近设备这一项」，点什么都没得点。
+27
+28        原因：HarmonyOS 4（底层 Android 12）把 BLE 扫描权限归进「附近设备」分组，
+29        而部分华为/荣耀平板的权限面板**只有当应用同时声明了定位权限时**
+30        才把该分组显示出来。原来我们把 ACCESS_FINE_LOCATION 限到 maxSdkVersion=30，
+31        于是在 API 31+ 的设备上系统看不到任何定位权限声明 ⇒ 分组不渲染 ⇒ 无法授权。
+32        标准 Android 12+ 确实不需要定位权限就能扫 BLE，但华为的权限面板不这么实现。
+33
+34        代价：API 31+ 的权限列表里会多出一项「位置信息」。
+35        我们**不会真的去读位置**（Manifest 里没有 ACCESS_COARSE_LOCATION，
+36        运行时也只申请 SCAN/CONNECT），它只是让权限面板把蓝牙分组显示出来。
+37        这个代价值得付 —— 否则在华为平板上完全无法授权、App 直接不可用。
+38
+39        BLUETOOTH / BLUETOOTH_ADMIN 仍然限 maxSdkVersion=30：
+40        这两个是 API 30 及以下的旧权限，API 31+ 上有它们反而会触发兼容告警。
+41    -->
+42    <uses-permission
+42-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:36:5-37:38
+43        android:name="android.permission.BLUETOOTH"
+43-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:36:22-65
+44        android:maxSdkVersion="30" />
+44-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:37:9-35
+45    <uses-permission
+45-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:38:5-39:38
+46        android:name="android.permission.BLUETOOTH_ADMIN"
+46-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:38:22-71
+47        android:maxSdkVersion="30" />
+47-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:39:9-35
+48
+49    <!-- 不限版本：见上面 2026-10-28 说明（华为平板权限面板依赖它） -->
+50    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+50-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:42:5-79
+50-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:42:22-76
+51    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+51-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:44:5-45:31
+51-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:44:22-70
+52    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+52-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:46:5-76
+52-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:46:22-73
+53
+54    <!--
+55      bluetooth_le 声明为 required=false：
+56        required=true 时，应用商店会拒绝向"未声明 BLE 特性"的设备分发，
+57        用户手工装 APK 也会在部分系统上被拦（提示"不兼容本设备"）。
+58        本应用少了 BLE 只是不能用，不该连装都装不上 —— 运行时会给出明确提示。
+59    -->
+60    <uses-feature
+60-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:54:5-91
+61        android:name="android.hardware.bluetooth_le"
+61-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:54:19-63
+62        android:required="false" />
+62-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:54:64-88
+63    <uses-feature
+63-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:55:5-88
+64        android:name="android.hardware.bluetooth"
+64-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:55:19-60
+65        android:required="false" />
+65-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:55:61-85
+66    <uses-feature
+66-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:56:5-87
+67        android:name="android.hardware.location"
+67-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:56:19-59
+68        android:required="false" />
+68-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:56:60-84
+69    <uses-feature
+69-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:57:5-91
+70        android:name="android.hardware.location.gps"
+70-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:57:19-63
+71        android:required="false" />
+71-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:57:64-88
+72
+73    <permission
+73-->[androidx.core:core:1.12.0] D:\AndroidDev\gradle-home\caches\transforms-4\2cd1260d15b5dfd7e7d22582c394455b\transformed\core-1.12.0\AndroidManifest.xml:22:5-24:47
+74        android:name="com.epiano.ble.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+74-->[androidx.core:core:1.12.0] D:\AndroidDev\gradle-home\caches\transforms-4\2cd1260d15b5dfd7e7d22582c394455b\transformed\core-1.12.0\AndroidManifest.xml:23:9-81
+75        android:protectionLevel="signature" />
+75-->[androidx.core:core:1.12.0] D:\AndroidDev\gradle-home\caches\transforms-4\2cd1260d15b5dfd7e7d22582c394455b\transformed\core-1.12.0\AndroidManifest.xml:24:9-44
+76
+77    <uses-permission android:name="com.epiano.ble.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+77-->[androidx.core:core:1.12.0] D:\AndroidDev\gradle-home\caches\transforms-4\2cd1260d15b5dfd7e7d22582c394455b\transformed\core-1.12.0\AndroidManifest.xml:26:5-97
+77-->[androidx.core:core:1.12.0] D:\AndroidDev\gradle-home\caches\transforms-4\2cd1260d15b5dfd7e7d22582c394455b\transformed\core-1.12.0\AndroidManifest.xml:26:22-94
+78
+79    <application
+79-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:59:5-75:19
+80        android:allowBackup="true"
+80-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:60:9-35
+81        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+81-->[androidx.core:core:1.12.0] D:\AndroidDev\gradle-home\caches\transforms-4\2cd1260d15b5dfd7e7d22582c394455b\transformed\core-1.12.0\AndroidManifest.xml:28:18-86
+82        android:debuggable="true"
+83        android:extractNativeLibs="false"
+84        android:icon="@mipmap/ic_launcher"
+84-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:61:9-43
+85        android:label="@string/app_name"
+85-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:62:9-41
+86        android:supportsRtl="true"
+86-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:63:9-35
+87        android:theme="@style/Theme.EpianoBLE" >
+87-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:64:9-47
+88        <activity
+88-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:66:9-74:20
+89            android:name="com.epiano.ble.MainActivity"
+89-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:67:13-41
+90            android:exported="true"
+90-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:68:13-36
+91            android:label="@string/app_name" >
+91-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:69:13-45
+92            <intent-filter>
+92-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:70:13-73:29
+93                <action android:name="android.intent.action.MAIN" />
+93-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:71:17-69
+93-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:71:25-66
+94
+95                <category android:name="android.intent.category.LAUNCHER" />
+95-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:72:17-77
+95-->D:\GOWIN file\art\art1\android\app\src\main\AndroidManifest.xml:72:27-74
+96            </intent-filter>
+97        </activity>
+98
+99        <provider
+99-->[androidx.emoji2:emoji2:1.2.0] D:\AndroidDev\gradle-home\caches\transforms-4\71e38c6e1223e881ecdc642ef95df131\transformed\emoji2-1.2.0\AndroidManifest.xml:24:9-32:20
+100            android:name="androidx.startup.InitializationProvider"
+100-->[androidx.emoji2:emoji2:1.2.0] D:\AndroidDev\gradle-home\caches\transforms-4\71e38c6e1223e881ecdc642ef95df131\transformed\emoji2-1.2.0\AndroidManifest.xml:25:13-67
+101            android:authorities="com.epiano.ble.androidx-startup"
+101-->[androidx.emoji2:emoji2:1.2.0] D:\AndroidDev\gradle-home\caches\transforms-4\71e38c6e1223e881ecdc642ef95df131\transformed\emoji2-1.2.0\AndroidManifest.xml:26:13-68
+102            android:exported="false" >
+102-->[androidx.emoji2:emoji2:1.2.0] D:\AndroidDev\gradle-home\caches\transforms-4\71e38c6e1223e881ecdc642ef95df131\transformed\emoji2-1.2.0\AndroidManifest.xml:27:13-37
+103            <meta-data
+103-->[androidx.emoji2:emoji2:1.2.0] D:\AndroidDev\gradle-home\caches\transforms-4\71e38c6e1223e881ecdc642ef95df131\transformed\emoji2-1.2.0\AndroidManifest.xml:29:13-31:52
+104                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+104-->[androidx.emoji2:emoji2:1.2.0] D:\AndroidDev\gradle-home\caches\transforms-4\71e38c6e1223e881ecdc642ef95df131\transformed\emoji2-1.2.0\AndroidManifest.xml:30:17-75
+105                android:value="androidx.startup" />
+105-->[androidx.emoji2:emoji2:1.2.0] D:\AndroidDev\gradle-home\caches\transforms-4\71e38c6e1223e881ecdc642ef95df131\transformed\emoji2-1.2.0\AndroidManifest.xml:31:17-49
+106            <meta-data
+106-->[androidx.lifecycle:lifecycle-process:2.7.0] D:\AndroidDev\gradle-home\caches\transforms-4\2ca95cd3f81583d99fa508d1b6cd7b84\transformed\lifecycle-process-2.7.0\AndroidManifest.xml:29:13-31:52
+107                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+107-->[androidx.lifecycle:lifecycle-process:2.7.0] D:\AndroidDev\gradle-home\caches\transforms-4\2ca95cd3f81583d99fa508d1b6cd7b84\transformed\lifecycle-process-2.7.0\AndroidManifest.xml:30:17-78
+108                android:value="androidx.startup" />
+108-->[androidx.lifecycle:lifecycle-process:2.7.0] D:\AndroidDev\gradle-home\caches\transforms-4\2ca95cd3f81583d99fa508d1b6cd7b84\transformed\lifecycle-process-2.7.0\AndroidManifest.xml:31:17-49
+109            <meta-data
+109-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:29:13-31:52
+110                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+110-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:30:17-85
+111                android:value="androidx.startup" />
+111-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:31:17-49
+112        </provider>
+113
+114        <receiver
+114-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:34:9-52:20
+115            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+115-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:35:13-76
+116            android:directBootAware="false"
+116-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:36:13-44
+117            android:enabled="true"
+117-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:37:13-35
+118            android:exported="true"
+118-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:38:13-36
+119            android:permission="android.permission.DUMP" >
+119-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:39:13-57
+120            <intent-filter>
+120-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:40:13-42:29
+121                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+121-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:41:17-91
+121-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:41:25-88
+122            </intent-filter>
+123            <intent-filter>
+123-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:43:13-45:29
+124                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+124-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:44:17-85
+124-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:44:25-82
+125            </intent-filter>
+126            <intent-filter>
+126-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:46:13-48:29
+127                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+127-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:47:17-88
+127-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:47:25-85
+128            </intent-filter>
+129            <intent-filter>
+129-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:49:13-51:29
+130                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+130-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:50:17-95
+130-->[androidx.profileinstaller:profileinstaller:1.3.0] D:\AndroidDev\gradle-home\caches\transforms-4\b821522500aeadb47eaa6e896fdb8899\transformed\profileinstaller-1.3.0\AndroidManifest.xml:50:25-92
+131            </intent-filter>
+132        </receiver>
+133    </application>
+134
+135</manifest>

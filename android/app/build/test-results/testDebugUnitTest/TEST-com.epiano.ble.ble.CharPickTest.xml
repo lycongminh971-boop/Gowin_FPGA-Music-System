@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.epiano.ble.ble.CharPickTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-10-29T17:32:01" hostname="CRUSH" time="0.048">
+  <properties/>
+  <testcase name="FFF2 不支持写时该组合无效" classname="com.epiano.ble.ble.CharPickTest" time="0.042"/>
+  <testcase name="通用 FFE0 模块走第二分支" classname="com.epiano.ble.ble.CharPickTest" time="0.004"/>
+  <testcase name="缺少 FFF2 时宁可返回 null 也不退回 FFF3" classname="com.epiano.ble.ble.CharPickTest" time="0.0"/>
+  <testcase name="只有标准服务时返回 null" classname="com.epiano.ble.ble.CharPickTest" time="0.0"/>
+  <testcase name="真机 GATT 表应选择 FFF2 写 FFF1 通知" classname="com.epiano.ble.ble.CharPickTest" time="0.0"/>
+  <testcase name="FFF1 不可写时不应被选为发送口" classname="com.epiano.ble.ble.CharPickTest" time="0.0"/>
+  <testcase name="绝不能把 FFF3 配置口当数据发送口" classname="com.epiano.ble.ble.CharPickTest" time="0.001"/>
+  <testcase name="完全未知的服务返回 null 而不是乱选" classname="com.epiano.ble.ble.CharPickTest" time="0.0"/>
+  <testcase name="FFF1 不支持通知时该组合无效" classname="com.epiano.ble.ble.CharPickTest" time="0.0"/>
+  <testcase name="FFF0 优先于 FFE0" classname="com.epiano.ble.ble.CharPickTest" time="0.0"/>
+  <testcase name="只有配置特征时返回 null" classname="com.epiano.ble.ble.CharPickTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

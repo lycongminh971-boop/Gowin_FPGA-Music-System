@@ -1,0 +1,103 @@
+GowinSynthesis start
+Running parser ...
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\adsr.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\art_report.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\audio_delay.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\audio_tx.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\auto_player.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\beat_gen.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\bt_link.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\ec11_decode.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\gowin_rom\gowin_rom.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\guide_player.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\i2c_master.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\lcd_font.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\led_map.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\mpr121.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\poly_engine.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\recorder.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\rgb_scope.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\song_ram.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\star.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\tlc59282_chain.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\uart_rx.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\uart_tx.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\vl53l0x.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\voice_alloc.v'
+Analyzing Verilog file 'D:\GOWIN file\art\art1\src\vol_map.v'
+Compiling module 'star'("D:\GOWIN file\art\art1\src\star.v":9)
+Compiling module 'mpr121'("D:\GOWIN file\art\art1\src\mpr121.v":1)
+Compiling module 'i2c_master(SCL_HZ=100000)'("D:\GOWIN file\art\art1\src\i2c_master.v":1)
+Compiling module 'ec11_decode'("D:\GOWIN file\art\art1\src\ec11_decode.v":1)
+Compiling module 'voice_alloc(NV=4)'("D:\GOWIN file\art\art1\src\voice_alloc.v":1)
+Extracting RAM for identifier 'owner'("D:\GOWIN file\art\art1\src\voice_alloc.v":9)
+WARN  (EX3791) : Expression size 3 truncated to fit in target size 2("D:\GOWIN file\art\art1\src\voice_alloc.v":40)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 5("D:\GOWIN file\art\art1\src\voice_alloc.v":43)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 2("D:\GOWIN file\art\art1\src\voice_alloc.v":43)
+Compiling module 'poly_engine(INSTRUMENT_PRESETS=1)'("D:\GOWIN file\art\art1\src\poly_engine.v":1)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 9("D:\GOWIN file\art\art1\src\poly_engine.v":78)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 4("D:\GOWIN file\art\art1\src\poly_engine.v":88)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 4("D:\GOWIN file\art\art1\src\poly_engine.v":90)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 4("D:\GOWIN file\art\art1\src\poly_engine.v":91)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 4("D:\GOWIN file\art\art1\src\poly_engine.v":92)
+WARN  (EX3791) : Expression size 45 truncated to fit in target size 32("D:\GOWIN file\art\art1\src\poly_engine.v":131)
+Compiling module 'adsr(INSTRUMENT_PRESETS=1)'("D:\GOWIN file\art\art1\src\adsr.v":1)
+Compiling module 'Gowin_ROM'("D:\GOWIN file\art\art1\src\gowin_rom\gowin_rom.v":11)
+Compiling module 'vl53l0x'("D:\GOWIN file\art\art1\src\vl53l0x.v":1)
+Compiling module 'vol_map'("D:\GOWIN file\art\art1\src\vol_map.v":2)
+WARN  (EX3791) : Expression size 19 truncated to fit in target size 18("D:\GOWIN file\art\art1\src\vol_map.v":59)
+Compiling module 'audio_delay'("D:\GOWIN file\art\art1\src\audio_delay.v":1)
+Compiling module 'audio_tx'("D:\GOWIN file\art\art1\src\audio_tx.v":1)
+Compiling module 'uart_rx'("D:\GOWIN file\art\art1\src\uart_rx.v":1)
+Compiling module 'uart_tx'("D:\GOWIN file\art\art1\src\uart_tx.v":1)
+Compiling module 'bt_link'("D:\GOWIN file\art\art1\src\bt_link.v":1)
+Extracting RAM for identifier 'rd_buf'("D:\GOWIN file\art\art1\src\bt_link.v":109)
+Compiling module 'beat_gen'("D:\GOWIN file\art\art1\src\beat_gen.v":1)
+Compiling module 'song_ram'("D:\GOWIN file\art\art1\src\song_ram.v":1)
+Extracting RAM for identifier 'mem'("D:\GOWIN file\art\art1\src\song_ram.v":13)
+Compiling module 'guide_player'("D:\GOWIN file\art\art1\src\guide_player.v":1)
+Compiling module 'auto_player'("D:\GOWIN file\art\art1\src\auto_player.v":1)
+Compiling module 'recorder'("D:\GOWIN file\art\art1\src\recorder.v":1)
+Compiling module 'song_ram(WITH_INIT=0)'("D:\GOWIN file\art\art1\src\song_ram.v":1)
+Extracting RAM for identifier 'mem'("D:\GOWIN file\art\art1\src\song_ram.v":13)
+Compiling module 'art_report'("D:\GOWIN file\art\art1\src\art_report.v":1)
+Compiling module 'led_map(SWAP_DIE=1)'("D:\GOWIN file\art\art1\src\led_map.v":1)
+Compiling module 'tlc59282_chain(REVERSE=1)'("D:\GOWIN file\art\art1\src\tlc59282_chain.v":1)
+Compiling module 'rgb_scope(INSTRUMENT_PRESETS=1,BACKLIGHT_ENABLE=1)'("D:\GOWIN file\art\art1\src\rgb_scope.v":1)
+Extracting RAM for identifier 'wave_ram'("D:\GOWIN file\art\art1\src\rgb_scope.v":66)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 10("D:\GOWIN file\art\art1\src\rgb_scope.v":77)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 10("D:\GOWIN file\art\art1\src\rgb_scope.v":78)
+WARN  (EX3791) : Expression size 8 truncated to fit in target size 7("D:\GOWIN file\art\art1\src\rgb_scope.v":158)
+WARN  (EX3791) : Expression size 10 truncated to fit in target size 8("D:\GOWIN file\art\art1\src\rgb_scope.v":245)
+WARN  (EX3791) : Expression size 10 truncated to fit in target size 8("D:\GOWIN file\art\art1\src\rgb_scope.v":247)
+WARN  (EX3791) : Expression size 10 truncated to fit in target size 8("D:\GOWIN file\art\art1\src\rgb_scope.v":256)
+WARN  (EX3791) : Expression size 10 truncated to fit in target size 8("D:\GOWIN file\art\art1\src\rgb_scope.v":258)
+WARN  (EX3791) : Expression size 8 truncated to fit in target size 4("D:\GOWIN file\art\art1\src\rgb_scope.v":270)
+WARN  (EX3791) : Expression size 12 truncated to fit in target size 8("D:\GOWIN file\art\art1\src\rgb_scope.v":294)
+WARN  (EX3791) : Expression size 10 truncated to fit in target size 5("D:\GOWIN file\art\art1\src\rgb_scope.v":360)
+WARN  (EX3791) : Expression size 11 truncated to fit in target size 10("D:\GOWIN file\art\art1\src\rgb_scope.v":367)
+WARN  (EX3791) : Expression size 11 truncated to fit in target size 10("D:\GOWIN file\art\art1\src\rgb_scope.v":367)
+Compiling module 'lcd_font'("D:\GOWIN file\art\art1\src\lcd_font.v":1)
+WARN  (EX3791) : Expression size 4 truncated to fit in target size 3("D:\GOWIN file\art\art1\src\rgb_scope.v":459)
+WARN  (EX3791) : Expression size 12 truncated to fit in target size 11("D:\GOWIN file\art\art1\src\rgb_scope.v":469)
+NOTE  (EX0101) : Current top module is "star"
+[5%] Running netlist conversion ...
+Running device independent optimization ...
+[10%] Optimizing Phase 0 completed
+[15%] Optimizing Phase 1 completed
+[25%] Optimizing Phase 2 completed
+Running inference ...
+[30%] Inferring Phase 0 completed
+[40%] Inferring Phase 1 completed
+[50%] Inferring Phase 2 completed
+[55%] Inferring Phase 3 completed
+Running technical mapping ...
+[60%] Tech-Mapping Phase 0 completed
+[65%] Tech-Mapping Phase 1 completed
+[75%] Tech-Mapping Phase 2 completed
+[80%] Tech-Mapping Phase 3 completed
+[90%] Tech-Mapping Phase 4 completed
+WARN  (NL0002) : The module "led_map" instantiated to "u_lmap" is swept in optimizing("D:\GOWIN file\art\art1\src\star.v":395)
+[95%] Generate netlist file "D:\GOWIN file\art\art1\impl\gwsynthesis\art.vg" completed
+[100%] Generate report file "D:\GOWIN file\art\art1\impl\gwsynthesis\art_syn.rpt.html" completed
+GowinSynthesis finish
