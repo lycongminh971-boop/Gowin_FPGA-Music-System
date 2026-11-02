@@ -1,6 +1,6 @@
 # 🎵 Gowin FPGA Music System
 
-**xiqin——An FPGA-based Real-Time Polyphonic Music Synthesis System**
+**xinqin——An FPGA-based Real-Time Polyphonic Music Synthesis System**
 
 芯琴——基于 FPGA 的实时多音色复音合成电子乐器系统。
 
