@@ -1,8 +1,8 @@
 # 🎵 Gowin FPGA Music System
 
-**An FPGA-based Real-Time Polyphonic Music Synthesis System**
+**xiqin——An FPGA-based Real-Time Polyphonic Music Synthesis System**
 
-基于 FPGA 的实时多音色复音合成电子乐器系统。
+芯琴——基于 FPGA 的实时多音色复音合成电子乐器系统。
 
 [![FPGA](https://img.shields.io/badge/FPGA-Gowin-blue)](https://www.gowinsemi.com/)
 [![HDL](https://img.shields.io/badge/HDL-Verilog-orange)](https://en.wikipedia.org/wiki/Verilog)
